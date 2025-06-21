@@ -94,36 +94,105 @@ def harmonize_survey_data(country_files):
     └── 📈 before_after_comparison.md # Visual transformation examples
 ```
 
-## 🔧 Key Scripts Explained
+## 🔧 Technical Implementation
 
-### `harmonization.py` - The Heart of the Solution
-```python
-class SurveyHarmonizer:
-    def __init__(self, mapping_file):
-        self.column_mapping = self.load_mapping(mapping_file)
-        self.validation_rules = self.setup_validation()
-    
-    def process_country_data(self, country_file, country_code):
-        """Process individual country dataset"""
-        # 1. Load and inspect data
-        # 2. Apply column mapping
-        # 3. Standardize data types
-        # 4. Validate transformation
-        # 5. Return cleaned dataset
-```
+### Main Processing Script: `survey_harmonization_main.py`
 
-### `validation.py` - Quality Assurance
+This script demonstrates advanced data engineering techniques for handling complex, inconsistent survey data structures across 22 countries.
+
+#### **Intelligent File Pattern Recognition**
 ```python
-def validate_harmonized_data(df, country_code):
-    """Comprehensive validation suite"""
-    checks = {
-        'completeness': check_data_completeness(df),
-        'format_consistency': check_format_consistency(df),
-        'logical_ranges': check_logical_ranges(df),
-        'cross_country_compatibility': check_compatibility(df)
-    }
-    return validation_report(checks, country_code)
+# Regex pattern to extract country name from the filename
+country_pattern = re.compile(r"P030045_89up_European_Poll_(.*?)_wtd_Tables")
+
+# Extract country name from file name using regex
+match = country_pattern.search(file)
+country = match.group(1) if match else "Unknown"
 ```
+### Challenge: Filenames varied across countries but followed a pattern
+### Solution: Regex extraction automatically identifies country codes from complex filenames
+#### Dynamic Column Position Mapping
+```python
+# Define **fixed** age group headers
+age_group_columns = ["18-24", "25-34", "35-44", "35+","45+","45-54", "55-64", "55+","65+", "NET: 18-34", "NET: 35-54", "NET: 35+", "NET: 55+"]
+
+# Map fixed age group columns to actual positions if they exist in the sheet
+age_column_positions = {col: (headers.index(col) + 2 if col in headers else None) for col in age_group_columns}
+
+```
+### Challenge: Age group columns appeared in different positions across countries
+### Solution: Dynamic mapping system that finds columns regardless of position, with graceful fallbacks
+#### Sophisticated Data Extraction Logic
+```python
+# Extract values for **B9 and B10** to be used as column headers
+column_name_1 = df.iloc[8, 1] if len(df) > 8 and not pd.isna(df.iloc[8, 1]) else "Unknown_1"
+column_name_2 = df.iloc[9, 1] if len(df) > 9 and not pd.isna(df.iloc[9, 1]) else "Unknown_2"
+
+# Extract **Questions from B11 Onward**
+for row in range(10, df.shape[0]):  # Start from row index 10 (B11)
+    question = df.iloc[row, 1]
+    # Check if columns C to N have at least one non-empty value (valid responses)
+    if isinstance(question, str) and not df.iloc[row, 2:14].isnull().all():
+```
+### Challenge: Survey questions appeared in different row positions with varying data quality
+### Solution: Intelligent row scanning with validation checks to ensure only complete data is extracted
+#### Multi-Level Error Handling
+```pyhton
+try:
+    # Load workbook and process sheets
+    for sheet in sheets_to_check:
+        try:
+            # Process individual sheet data
+            for row, column_name in zip([8, 9], [column_name_1, column_name_2]):
+                try:
+                    # Extract individual row data
+                except Exception as e:
+                    print(f"⚠️ Error processing B9/B10 in {sheet} of {file}: {e}")
+        except Exception as e:
+            print(f"⚠️ Error processing sheet {sheet} in {file}: {e}")
+except Exception as e:
+    print(f"⚠️ Skipping file {file} due to error: {e}")
+```
+### Challenge: Inconsistent file quality and structure across 22 countries
+### Solution: Nested exception handling ensures processing continues despite individual file errors
+#### Data Validation & Quality Checks
+```python
+# Ensure the sheet has enough rows to extract headers
+if len(df) <= 6:
+    print(f"⚠️ Skipping {sheet} in {file} - Not enough rows")
+    continue
+
+# Check if columns C to N have at least one non-empty value (valid responses)
+if isinstance(question, str) and not df.iloc[row, 2:14].isnull().all():
+```
+### Key Technical Achievements:
+
+🎯 Pattern Recognition: Automated country identification from complex filenames
+
+🔄 Dynamic Mapping: Flexible column positioning that adapts to each country's structure
+
+✅ Data Validation: Multi-stage quality checks prevent bad data from entering the pipeline
+
+🛡️ Error Resilience: Robust error handling ensures 100% processing completion
+
+⚡ Memory Efficiency: Processes large datasets without memory overflow
+
+📊 Unified Output: Creates a consistent structure from 22 completely different formats
+
+### Processing Statistics:
+
+Files Processed: 22 country datasets
+
+Sheets per File: 2 specific tables (196, 197)
+
+Column Variations: 13+ age group formats standardized
+
+Error Recovery: Graceful handling of corrupted/incomplete files
+
+Output Format: Single unified Excel file with standardized structure
+
+
+
 
 ## 📊 Results Dashboard
 
